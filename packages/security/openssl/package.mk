@@ -44,8 +44,13 @@ pre_configure_host() {
 }
 
 configure_host() {
+  case ${MACHINE_HARDWARE_NAME} in
+    i*86)
+      MACHINE_HARDWARE_NAME_2="x86"
+      ;;
+  esac
   cd ${PKG_BUILD}/.${HOST_NAME}
-  ./Configure ${PKG_CONFIGURE_OPTS_HOST} ${PKG_CONFIGURE_OPTS_SHARED} linux-${MACHINE_HARDWARE_NAME} ${CFLAGS} ${LDFLAGS}
+  ./Configure ${PKG_CONFIGURE_OPTS_HOST} ${PKG_CONFIGURE_OPTS_SHARED} linux-${MACHINE_HARDWARE_NAME_2} ${CFLAGS} ${LDFLAGS}
 }
 
 makeinstall_host() {
