@@ -15,7 +15,7 @@ PKG_TOOLCHAIN="configure"
 PKG_CONFIGURE_OPTS_TARGET="--with-arch=${TARGET_ARCH} \
                            --with-cache-dir=/storage/.cache/fontconfig \
                            --with-default-fonts=/usr/share/fonts \
-                           --without-add-fonts \
+                           --with-add-fonts=/usr/local/vdrshare/fonts,/storage/.config/vdropt/fonts \
                            --disable-dependency-tracking \
                            --disable-docs \
                            --disable-rpath"

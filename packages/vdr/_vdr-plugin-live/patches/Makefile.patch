@@ -1,0 +1,41 @@
+diff -u8bBw a/Makefile b/Makefile
+--- a/Makefile	2021-06-05 17:09:31.000000000 +0200
++++ b/Makefile	2022-03-25 17:11:08.538135841 +0100
+@@ -11,17 +11,17 @@
+ VERSION := $(shell grep '\#define LIVEVERSION ' setup.h | awk '{ print $$3 }' | sed -e 's/[";]//g')
+ 
+ ### Check for libpcre c++ wrapper
+ HAVE_LIBPCRECPP := $(shell pcre-config --libs-cpp)
+ 
+ ### The directory environment:
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
+-LIBDIR = $(call PKGCFG,libdir)
++LIBDIR ?= $(call PKGCFG,libdir)
+ LOCDIR = $(call PKGCFG,locdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ RESDIR = $(call PKGCFG,resdir)
+ #
+ TMPDIR ?= /tmp
+ 
+ ### The compiler options:
+ export CFLAGS   = $(call PKGCFG,cflags)
+@@ -74,17 +74,17 @@
+ ### The name of the distribution archive:
+ ARCHIVE := $(PLUGIN)-$(VERSION)
+ PACKAGE := vdr-$(ARCHIVE)
+ 
+ ### The name of the shared object file:
+ SOFILE := libvdr-$(PLUGIN).so
+ 
+ ### Installed shared object file:
+-SOINST = $(DESTDIR)$(LIBDIR)/$(SOFILE).$(APIVERSION)
++SOINST = $(LIBDIR)/$(SOFILE).$(APIVERSION)
+ 
+ ### Includes and Defines (add further entries here):
+ DEFINES	+= -D_GNU_SOURCE -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -DTNTVERSION=$(TNTVERSION) -DCXXTOOLVER=$(CXXTOOLVER)
+ DEFINES	+= -DDISABLE_TEMPLATES_COLLIDING_WITH_STL
+ VERSIONSUFFIX = gen_version_suffix.h
+ 
+ ### The object files (add further files here):
+ PLUGINOBJS := $(PLUGIN).o thread.o tntconfig.o setup.o i18n.o timers.o \
