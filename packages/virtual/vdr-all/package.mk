@@ -11,6 +11,7 @@ PKG_LONGDESC="A DVB TV server application."
 
 PKG_DEPENDS_TARGET+=" _vdr"
 #PKG_DEPENDS_TARGET+=" _vdr-plugin-softhdodroid"
+PKG_DEPENDS_TARGET+=" _vdr-plugin-softhddevice-drm"
 PKG_DEPENDS_TARGET+=" _vdr-plugin-satip"
 PKG_DEPENDS_TARGET+=" _vdr-plugin-ddci2"
 PKG_DEPENDS_TARGET+=" _vdr-plugin-dummydevice"
