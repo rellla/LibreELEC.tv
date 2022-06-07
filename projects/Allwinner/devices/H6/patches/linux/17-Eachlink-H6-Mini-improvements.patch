@@ -52,7 +52,7 @@ index 2c67f5607120..c8f6e0abb1d9 100644
 +&emac {
 +	pinctrl-names = "default";
 +	pinctrl-0 = <&ext_rmii_pins>;
-+	phy-node = "rmii";
++	phy-mode = "rmii";
 +	phy-handle = <&ext_rmii_phy>;
 +	status = "okay";
 +};
