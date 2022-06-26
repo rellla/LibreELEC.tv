@@ -59,10 +59,15 @@ make_target() {
 makeinstall_target() {
   PREFIX="${VDR_PREFIX}"
   CONFDIR="/storage/.config/vdropt"
+  if [ "${PROJECT}" = "Amlogic-ce" ]; then
+      LDPRELOADMALI="/usr/lib/libMali.so"
+  else
+      LDPRELOADMALI=""
+  fi
 
   make DESTDIR="${INSTALL}" install
 
-  SED_SCRIPT="s#XXCONFDIRXX#${CONFDIR}# ; s#XXBINDIRXX#${PREFIX}/bin# ; s#XXVERSIONXX#${PKG_VERSION}# ; s#XXLIBDIRXX#${PREFIX}/lib# ; s#XXPREFIXXX#${PREFIX}# ; s#XXPREFIXCONFXX#${PREFIX}/config#"
+  SED_SCRIPT="s#XXCONFDIRXX#${CONFDIR}# ; s#XXBINDIRXX#${PREFIX}/bin# ; s#XXVERSIONXX#${PKG_VERSION}# ; s#XXLIBDIRXX#${PREFIX}/lib# ; s#XXPREFIXXX#${PREFIX}# ; s#XXPREFIXCONFXX#${PREFIX}/config# ; s#XXLDPRELOADMALIXX#${LDPRELOADMALI}#"
 
   cat ${PKG_DIR}/bin/start_vdr.sh | sed "${SED_SCRIPT}" > ${INSTALL}/${PREFIX}/bin/start_vdr.sh
   chmod +x ${INSTALL}/${PREFIX}/bin/start_vdr.sh
@@ -77,12 +82,60 @@ makeinstall_target() {
   chmod +x ${INSTALL}/${PREFIX}/bin/install.sh
 
   cat ${PKG_DIR}/bin/switch_kodi_vdr.sh | sed "${SED_SCRIPT}" > ${INSTALL}/${PREFIX}/bin/switch_kodi_vdr.sh
+
+  if [ "${PROJECT}" = "Amlogic-ce" ]; then
+    cat >> ${INSTALL}/${PREFIX}/bin/switch_kodi_vdr.sh <<\EOF
+if [ "${START_PRG}" = "vdr" ]; then
+   systemctl stop kodi
+   echo 4 > /sys/module/amvdec_h264/parameters/dec_control
+   systemctl start vdropt
+elif [ "${START_PRG}" = "kodi" ]; then
+   systemctl stop vdropt
+   echo rm pip0 > /sys/class/vfm/map
+   systemctl start kodi
+fi
+EOF
+  else
+    cat >> ${INSTALL}/${PREFIX}/bin/switch_kodi_vdr.sh <<\EOF
+if [ "${START_PRG}" = "vdr" ]; then
+   systemctl stop kodi
+   systemctl start vdropt
+elif [ "${START_PRG}" = "kodi" ]; then
+   systemctl stop vdropt
+   systemctl start kodi
+fi
+EOF
+  fi
+
   chmod +x ${INSTALL}/${PREFIX}/bin/switch_kodi_vdr.sh
 
   cp ${PKG_DIR}/bin/switch_to_vdr.sh ${INSTALL}/${PREFIX}/bin/switch_to_vdr.sh
   chmod +x ${INSTALL}/${PREFIX}/bin/switch_to_vdr.sh
 
   cp ${PKG_DIR}/bin/autostart.sh ${INSTALL}/${PREFIX}/bin/autostart.sh
+
+  if [ "${PROJECT}" = "Amlogic-ce" ]; then
+    cat >> ${INSTALL}/${PREFIX}/bin/autostart.sh <<\EOF
+if [ "${START_PRG}" = "vdr" ]; then
+   systemctl stop kodi
+   echo 4 > /sys/module/amvdec_h264/parameters/dec_control
+   systemctl start vdropt
+elif [ "${START_PRG}" = "kodi" ]; then
+   systemctl stop vdropt
+   echo rm pip0 > /sys/class/vfm/map
+fi
+EOF
+  else
+    cat >> ${INSTALL}/${PREFIX}/bin/autostart.sh <<\EOF
+if [ "${START_PRG}" = "vdr" ]; then
+   systemctl stop kodi
+   systemctl start vdropt
+elif [ "${START_PRG}" = "kodi" ]; then
+   systemctl stop vdropt
+fi
+EOF
+  fi
+
   chmod +x ${INSTALL}/${PREFIX}/bin/autostart.sh
 
   # rename perl svdrpsend to svdrpsend.pl and copy the netcat variant
@@ -110,10 +163,18 @@ post_makeinstall_target() {
   mkdir -p ${VDR_DIR}/storage/.config/vdropt-sample/conf.d
   cp -PR ${PKG_DIR}/conf.d/* ${VDR_DIR}/storage/.config/vdropt-sample/conf.d/
 
-  cat >> ${VDR_DIR}/storage/.config/vdropt-sample/enabled_plugins <<EOF
+
+  if [ "${PROJECT}" = "Amlogic-ce" ]; then
+    cat >> ${VDR_DIR}/storage/.config/vdropt-sample/enabled_plugins <<EOF
 softhdodroid
 satip
 EOF
+  else
+    cat >> ${VDR_DIR}/storage/.config/vdropt-sample/enabled_plugins <<EOF
+softhddevice-drm
+streamdev-client
+EOF
+  fi
 
   if find ${INSTALL}/storage/.config/vdropt -mindepth 1 -maxdepth 1 2>/dev/null | read; then
      cp -ar ${INSTALL}/storage/.config/vdropt/* ${INSTALL}/storage/.config/vdropt-sample
