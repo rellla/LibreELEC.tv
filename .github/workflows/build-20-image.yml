@@ -1,0 +1,62 @@
+name: Build VdrELEC/VDR 20 Image
+
+# Controls when the workflow will run
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: oprypin/find-latest-tag@v1
+        with:
+          repository:  rellla/LibreELEC
+          releases-only: true
+          prefix: 'v'
+        id: current_tag
+
+      - name: Prepare build
+        run: |
+          mkdir -p image-artifacts
+          rm -f image-artifacts/*
+
+      - name: Restore sources cache
+        run: |
+          if [ -d ../build-cache/sources ]; then
+            rm -f sources
+            ln -s ../build-cache/sources sources
+          fi
+
+      - name: Checkout vdrelec-20-VDR
+        run: |
+          ./build-local.sh -r
+          mv target/VdrELEC-H6.arm-11.0*-tanix-tx6.img.gz image-artifacts/VdrELEC-VDR-H6.arm-11.0-${{ steps.current_tag.outputs.tag }}-tanix-tx6.img.gz
+          mv target/VdrELEC-H6.arm-11.0*-tanix-tx6.img.gz.sha256 image-artifacts/VdrELEC-VDR-H6.arm-11.0-${{ steps.current_tag.outputs.tag }}-tanix-tx6.img.gz.sha256
+          mv target/VdrELEC-H6.arm-11.0*.tar image-artifacts/VdrELEC-VDR-H6.arm-11.0-${{ steps.current_tag.outputs.tag }}.tar
+
+      - name: Save sources cache
+        run: |
+          mkdir -p ../build-cache
+
+          if [ ! -d ../build-cache/sources ]; then
+            mv sources ../build-cache/sources
+          else
+            rm sources
+          fi
+
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: image-artifacts/*
+          tag: ${{ steps.current_tag.outputs.tag }}
+          overwrite: true
+          file_glob: true
