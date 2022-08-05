@@ -1,0 +1,120 @@
+name: Build VdrELEC images
+on:
+  workflow_dispatch:
+    inputs:
+      gitref_to_build:
+        description: "gitref tag or hash to build"
+        default: vdrelec-20-VDR
+        required: true
+        type: string
+      target:
+        description: "targets to build"
+        default: all
+        required: true
+        type: choice
+        options:
+          - all
+          - H6.arm
+          - H3.arm
+          - H5.arm
+          - A64.arm
+          - R40.arm
+          - Amlogic-ng.arm
+
+jobs:
+  H6_arm:
+    name: H6.arm
+    if: |
+      ( github.event.inputs.target == 'H6.arm' || github.event.inputs.target == 'all' )
+    uses: rellla/vdrelec-actions/.github/workflows/make-image.yml@actions
+    with:
+      gitref: ${{ inputs.gitref_to_build }}
+      project: Allwinner
+      arch: arm
+      device: H6
+      distro: VdrELEC
+      with_vdr: yes
+      vdr_prefix: "/usr/local"
+      build_suffix: VDR
+    secrets: inherit
+
+  H3_arm:
+    name: H3.arm
+    if: |
+      ( github.event.inputs.target == 'H3.arm' || github.event.inputs.target == 'all' )
+    uses: rellla/vdrelec-actions/.github/workflows/make-image.yml@actions
+    with:
+      gitref: ${{ inputs.gitref_to_build }}
+      project: Allwinner
+      arch: arm
+      device: H3
+      distro: VdrELEC
+      with_vdr: yes
+      vdr_prefix: "/usr/local"
+      build_suffix: VDR
+    secrets: inherit
+
+  H5_arm:
+    name: H5.arm
+    if: |
+      ( github.event.inputs.target == 'H5.arm' || github.event.inputs.target == 'all' )
+    uses: rellla/vdrelec-actions/.github/workflows/make-image.yml@actions
+    with:
+      gitref: ${{ inputs.gitref_to_build }}
+      project: Allwinner
+      arch: arm
+      device: H5
+      distro: VdrELEC
+      with_vdr: yes
+      vdr_prefix: "/usr/local"
+      build_suffix: VDR
+    secrets: inherit
+
+  A64_arm:
+    name: A64.arm
+    if: |
+      ( github.event.inputs.target == 'A64.arm' || github.event.inputs.target == 'all' )
+    uses: rellla/vdrelec-actions/.github/workflows/make-image.yml@actions
+    with:
+      gitref: ${{ inputs.gitref_to_build }}
+      project: Allwinner
+      arch: arm
+      device: A64
+      distro: VdrELEC
+      with_vdr: yes
+      vdr_prefix: "/usr/local"
+      build_suffix: VDR
+    secrets: inherit
+
+  R40_arm:
+    name: R40.arm
+    if: |
+      ( github.event.inputs.target == 'R40.arm' || github.event.inputs.target == 'all' )
+    uses: rellla/vdrelec-actions/.github/workflows/make-image.yml@actions
+    with:
+      gitref: ${{ inputs.gitref_to_build }}
+      project: Allwinner
+      arch: arm
+      device: R40
+      distro: VdrELEC
+      with_vdr: yes
+      vdr_prefix: "/usr/local"
+      build_suffix: VDR
+    secrets: inherit
+
+  Amlogic-ng_arm:
+    name: Amlogic-ng.arm
+    if: |
+      ( github.event.inputs.target == 'Amlogic-ng.arm' || github.event.inputs.target == 'all' )
+    uses: rellla/vdrelec-actions/.github/workflows/make-image.yml@actions
+    with:
+      gitref: ${{ inputs.gitref_to_build }}
+      project: Amlogic-ce
+      arch: arm
+      device: Amlogic-ng
+      distro: CoreELEC
+      with_vdr: yes
+      vdr_prefix: "/usr/local"
+      build_suffix: VDR
+    secrets: inherit
+

@@ -1,0 +1,142 @@
+name: build images
+
+# Controls when the workflow will run
+on:
+  workflow_call:
+    inputs:
+      gitref:
+        description: "git branch or hash to build"
+        default: vdrelec-20-VDR
+        required: true
+        type: string
+      project:
+        description: "target project"
+        default: Allwinner
+        required: true
+        type: string
+      arch:
+        description: "target arch"
+        default: arm
+        required: true
+        type: string
+      device:
+        description: "target device"
+        default: ""
+        required: false
+        type: string
+      distro:
+        description: "target distribution"
+        default: "VDRElec"
+        required: true
+        type: string
+      with_vdr:
+        description: "build VDR"
+        default: "yes"
+        required: true
+        type: string
+      vdr_prefix:
+        description: "VDR prefix"
+        default: "/usr/local"
+        required: true
+        type: string
+      build_suffix:
+        description: "Build suffix"
+        default: "VDR"
+        required: true
+        type: string
+
+env:
+  # Distro Target Variables
+  PROJECT: ${{ inputs.project }}
+  ARCH: ${{ inputs.arch }}
+  DEVICE: ${{ inputs.device }}
+  VDR: ${{ inputs.with_vdr }}
+  VDR_PREFIX: ${{ inputs.vdr_prefix }}
+  DISTRO: ${{ inputs.distro }}
+  BUILD_SUFFIX: ${{ inputs.build_suffix }}
+
+jobs:
+  build:
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: "rellla/LibreELEC.tv"
+          fetch-depth: 1
+          ref: vdrelec-20-VDR
+          clean: false
+
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+
+      - name: Prepare build
+        run: |
+          mkdir -p image-artifacts
+          rm -f image-artifacts/*
+
+      - name: Restore sources cache
+        run: |
+          if [ -d ../build-cache/sources ]; then
+            rm -f sources
+            ln -s ../build-cache/sources sources
+          fi
+
+      - name: Build vdrelec-20-VDR
+        run: |
+          rm -rf target/*
+          git checkout ${{ inputs.gitref }}
+          make image
+#          PROJECT=${{ env.PROJECT }} ARCH=${{ env.ARCH }} DEVICE=${{ env.DEVICE }} VDR=${{ env.VDR }} VDR_PREFIX=${{ env.VDR_PREFIX }} DISTRO=${{ env.DISTRO }} BUILD_SUFFIX=${{ env.BUILD_SUFFIX }} make image
+#          ./build-vdrelec.sh -b
+
+      - name: Save sources cache
+        run: |
+          mkdir -p ../build-cache
+
+          if [ ! -d ../build-cache/sources ]; then
+            mv sources ../build-cache/sources
+          else
+            rm sources
+          fi
+
+      - name: Move images
+        run: |
+          cd target
+
+          for old in ./*.img.gz.sha256; do
+            regex='(.*)-(.*)-([0-9]*.[0-9]?)-(.*_.*_[^-]*)-(.*)\.(img\.gz\.sha256)'
+            if [[ $old =~ $regex ]]; then
+              new=${BASH_REMATCH[1]}-VDR-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}-${BASH_REMATCH[5]}.${BASH_REMATCH[6]}
+              mv $old ../image-artifacts/$new
+            fi
+          done
+
+          for old in ./*.img.gz; do
+            regex='(.*)-(.*)-([0-9]*.[0-9]?)-(.*_.*_[^-]*)-(.*)\.(img\.gz)'
+            if [[ $old =~ $regex ]]; then
+              new=${BASH_REMATCH[1]}-VDR-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}-${BASH_REMATCH[5]}.${BASH_REMATCH[6]}
+              mv $old ../image-artifacts/$new
+            fi
+          done
+
+          mv *.tar ../image-artifacts/
+          mv *.tar.sha256 ../image-artifacts/
+
+      - name: Get checked out sha
+        id: sha
+        run: |
+          echo "::set-output name=shashort::$(git log -1 --format='%h')"
+          echo "::set-output name=shalong::$(git log -1 --format='%H')"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: vdrelec-20-vdr
+          prerelease: false
+          repository: rellla/LibreELEC.tv
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          body: "Current release: rellla/LibreELEC.tv@${{ steps.sha.outputs.shalong }}, built on ${{ steps.date.outputs.date }}"
+          files: |
+            image-artifacts/*
