@@ -1,0 +1,26 @@
+From 0ea4ec6e8965848ebe22e27c44ddfd8ab60a8bb6 Mon Sep 17 00:00:00 2001
+From: Rudi Heitbaum <rudi@heitbaum.com>
+Date: Mon, 11 Jul 2022 09:39:02 +0000
+Subject: [PATCH] WinSystemX11: cast as char as formatting of non-void pointers
+ is disallowed
+
+---
+ xbmc/windowing/X11/WinSystemX11.cpp | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
+index 42f5a99faab94..cdb2a1da2e28b 100644
+--- a/xbmc/windowing/X11/WinSystemX11.cpp
++++ b/xbmc/windowing/X11/WinSystemX11.cpp
+@@ -1048,7 +1048,10 @@ bool CWinSystemX11::HasWindowManager()
+ 
+   if(status == Success && items_read)
+   {
+-    CLog::Log(LOGDEBUG, "Window Manager Name: {}", data);
++    const char* s;
++
++    s = reinterpret_cast<const char*>(data);
++    CLog::Log(LOGDEBUG, "Window Manager Name: {}", s);
+   }
+   else
+     CLog::Log(LOGDEBUG,"Window Manager Name: ");
