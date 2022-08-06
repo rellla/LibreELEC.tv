@@ -10,9 +10,9 @@ PKG_SECTION="virtual"
 PKG_LONGDESC="A DVB TV server application."
 
 PKG_DEPENDS_TARGET+=" _vdr"
-if [ "${PROJECT}" = "Amlogic-ce" ]; then
+if [ "${VDR_SOFTHDDEVICE}" = "softhdodroid" ]; then
     PKG_DEPENDS_TARGET+=" _vdr-plugin-softhdodroid"
-elif [ "${PROJECT}" = "Allwinner" ]; then
+elif [ "${VDR_SOFTHDDEVICE}" = "softhddevice-drm" ]; then
     PKG_DEPENDS_TARGET+=" _vdr-plugin-softhddevice-drm"
 fi
 PKG_DEPENDS_TARGET+=" _vdr-plugin-satip"

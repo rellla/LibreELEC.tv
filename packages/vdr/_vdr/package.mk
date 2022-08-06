@@ -164,14 +164,22 @@ post_makeinstall_target() {
   cp -PR ${PKG_DIR}/conf.d/* ${VDR_DIR}/storage/.config/vdropt-sample/conf.d/
 
 
-  if [ "${PROJECT}" = "Amlogic-ce" ]; then
+  if [ "${VDR_SOFTHDDEVICE}" = "softhdodroid" ]; then
     cat >> ${VDR_DIR}/storage/.config/vdropt-sample/enabled_plugins <<EOF
 softhdodroid
-satip
 EOF
-  else
+  elif [ "${VDR_SOFTHDDEVICE}" = "softhddevice-drm" ]; then
     cat >> ${VDR_DIR}/storage/.config/vdropt-sample/enabled_plugins <<EOF
 softhddevice-drm
+EOF
+  fi
+
+  if [ "${VDR_INPUTDEVICE}" = "satip" ]; then
+    cat >> ${VDR_DIR}/storage/.config/vdropt-sample/enabled_plugins <<EOF
+satip
+EOF
+  elif [ "${VDR_INPUTDEVICE}" = "streamdev" ]; then
+    cat >> ${VDR_DIR}/storage/.config/vdropt-sample/enabled_plugins <<EOF
 streamdev-client
 EOF
   fi
