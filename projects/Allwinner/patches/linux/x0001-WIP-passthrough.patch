@@ -1,0 +1,199 @@
+From 3814c062cdedccc15e964eb84e63c2650a3f3b98 Mon Sep 17 00:00:00 2001
+From: Andreas Baierl <ichgeh@imkreisrum.de>
+Date: Sun, 27 Apr 2025 22:42:04 +0200
+Subject: [PATCH] WIP: passthrough
+
+---
+ .../drm/bridge/synopsys/dw-hdmi-i2s-audio.c   | 22 +++++++++++++++++--
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi.h     |  5 +++++
+ include/sound/hdmi-codec.h                    |  1 +
+ sound/soc/codecs/hdmi-codec.c                 |  9 ++++++--
+ sound/soc/rockchip/rockchip_i2s.c             |  6 +++--
+ sound/soc/sunxi/sun4i-i2s.c                   |  3 ++-
+ 6 files changed, 39 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+index 5343662..eeeba3c 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-i2s-audio.c
+@@ -40,8 +40,11 @@ static int dw_hdmi_i2s_prepare(struct device *dev, void *data,
+ {
+ 	struct dw_hdmi_i2s_audio_data *audio = data;
+ 	struct dw_hdmi *hdmi = audio->hdmi;
++	int sample_width = hparms->sample_width;
++	int ca = hparms->cea.channel_allocation;
+ 	u8 conf0 = 0;
+ 	u8 conf1 = 0;
++	u8 conf2 = 0;
+ 	u8 inputclkfs = 0;
+ 
+ 	/* it cares I2S only */
+@@ -57,6 +60,18 @@ static int dw_hdmi_i2s_prepare(struct device *dev, void *data,
+ 	inputclkfs	= HDMI_AUD_INPUTCLKFS_64FS;
+ 	conf0		= (HDMI_AUD_CONF0_I2S_SELECT | HDMI_AUD_CONF0_I2S_EN0);
+ 
++	if (hparms->format == SNDRV_PCM_FORMAT_IEC958_SUBFRAME_LE) {
++		conf2 |= HDMI_AUD_CONF2_NLPCM;
++
++		if (hparms->channels == 8)
++			conf2 |= HDMI_AUD_CONF2_HBR;
++
++		sample_width = 21;
++		ca = 0;
++	}
++
++	hdmi_write(audio, conf2, HDMI_AUD_CONF2);
++
+ 	/* Enable the required i2s lanes */
+ 	switch (hparms->channels) {
+ 	case 7 ... 8:
+@@ -70,10 +85,13 @@ static int dw_hdmi_i2s_prepare(struct device *dev, void *data,
+ 		/* Fall-thru */
+ 	}
+ 
+-	switch (hparms->sample_width) {
++	switch (sample_width) {
+ 	case 16:
+ 		conf1 = HDMI_AUD_CONF1_WIDTH_16;
+ 		break;
++	case 21:
++		conf1 = HDMI_AUD_CONF1_WIDTH_21;
++		break;
+ 	case 24:
+ 	case 32:
+ 		conf1 = HDMI_AUD_CONF1_WIDTH_24;
+@@ -104,7 +122,7 @@ static int dw_hdmi_i2s_prepare(struct device *dev, void *data,
+ 	dw_hdmi_set_sample_rate(hdmi, hparms->sample_rate);
+ 	dw_hdmi_set_channel_status(hdmi, hparms->iec.status);
+ 	dw_hdmi_set_channel_count(hdmi, hparms->channels);
+-	dw_hdmi_set_channel_allocation(hdmi, hparms->cea.channel_allocation);
++	dw_hdmi_set_channel_allocation(hdmi, ca);
+ 
+ 	hdmi_write(audio, inputclkfs, HDMI_AUD_INPUTCLKFS);
+ 	hdmi_write(audio, conf0, HDMI_AUD_CONF0);
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h
+index af43a04..6131817 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.h
+@@ -929,8 +929,13 @@ enum {
+ 	HDMI_AUD_CONF1_MODE_BURST_1 = 0x60,
+ 	HDMI_AUD_CONF1_MODE_BURST_2 = 0x80,
+ 	HDMI_AUD_CONF1_WIDTH_16 = 0x10,
++	HDMI_AUD_CONF1_WIDTH_21 = 0x15,
+ 	HDMI_AUD_CONF1_WIDTH_24 = 0x18,
+ 
++/* AUD_CONF2 field values */
++	HDMI_AUD_CONF2_NLPCM = 0x02,
++	HDMI_AUD_CONF2_HBR = 0x01,
++
+ /* AUD_CTS3 field values */
+ 	HDMI_AUD_CTS3_N_SHIFT_OFFSET = 5,
+ 	HDMI_AUD_CTS3_N_SHIFT_MASK = 0xe0,
+diff --git a/include/sound/hdmi-codec.h b/include/sound/hdmi-codec.h
+index 5e1a9ea..c1b6a6f 100644
+--- a/include/sound/hdmi-codec.h
++++ b/include/sound/hdmi-codec.h
+@@ -49,6 +49,7 @@ struct hdmi_codec_params {
+ 	int sample_rate;
+ 	int sample_width;
+ 	int channels;
++	snd_pcm_format_t format;
+ };
+ 
+ typedef void (*hdmi_codec_plugged_cb)(struct device *dev,
+diff --git a/sound/soc/codecs/hdmi-codec.c b/sound/soc/codecs/hdmi-codec.c
+index d9df29a..dfc78e8 100644
+--- a/sound/soc/codecs/hdmi-codec.c
++++ b/sound/soc/codecs/hdmi-codec.c
+@@ -507,6 +507,7 @@ static int hdmi_codec_fill_codec_params(struct snd_soc_dai *dai,
+ 					unsigned int sample_width,
+ 					unsigned int sample_rate,
+ 					unsigned int channels,
++					unsigned int format,
+ 					struct hdmi_codec_params *hp)
+ {
+ 	struct hdmi_codec_priv *hcp = snd_soc_dai_get_drvdata(dai);
+@@ -545,6 +546,7 @@ static int hdmi_codec_fill_codec_params(struct snd_soc_dai *dai,
+ 	hp->sample_width = sample_width;
+ 	hp->sample_rate = sample_rate;
+ 	hp->channels = channels;
++	hp->format = format;
+ 
+ 	if (pcm_audio)
+ 		hcp->chmap_idx = ca_id;
+@@ -581,6 +583,7 @@ static int hdmi_codec_hw_params(struct snd_pcm_substream *substream,
+ 					   params_width(params),
+ 					   params_rate(params),
+ 					   params_channels(params),
++					   params_format(params),
+ 					   &hp);
+ 	if (ret < 0)
+ 		return ret;
+@@ -606,6 +609,7 @@ static int hdmi_codec_prepare(struct snd_pcm_substream *substream,
+ 	struct hdmi_codec_daifmt *cf = snd_soc_dai_dma_data_get_playback(dai);
+ 	struct snd_pcm_runtime *runtime = substream->runtime;
+ 	unsigned int channels = runtime->channels;
++	unsigned int format = runtime->format;
+ 	unsigned int width = snd_pcm_format_width(runtime->format);
+ 	unsigned int rate = runtime->rate;
+ 	struct hdmi_codec_params hp;
+@@ -617,7 +621,7 @@ static int hdmi_codec_prepare(struct snd_pcm_substream *substream,
+ 	dev_dbg(dai->dev, "%s() width %d rate %d channels %d\n", __func__,
+ 		width, rate, channels);
+ 
+-	ret = hdmi_codec_fill_codec_params(dai, width, rate, channels, &hp);
++	ret = hdmi_codec_fill_codec_params(dai, width, rate, channels, format, &hp);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -747,7 +751,8 @@ static const u64 hdmi_codec_formats =
+ 			 SNDRV_PCM_RATE_192000)
+ 
+ #define SPDIF_FORMATS	(SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE |\
+-			 SNDRV_PCM_FMTBIT_S24_3LE | SNDRV_PCM_FMTBIT_S24_LE)
++			 SNDRV_PCM_FMTBIT_S24_3LE | SNDRV_PCM_FMTBIT_S24_LE |\
++			 SNDRV_PCM_FMTBIT_IEC958_SUBFRAME_LE)
+ 
+ /*
+  * This list is only for formats allowed on the I2S bus. So there is
+diff --git a/sound/soc/rockchip/rockchip_i2s.c b/sound/soc/rockchip/rockchip_i2s.c
+index 4315da4..c54776b 100644
+--- a/sound/soc/rockchip/rockchip_i2s.c
++++ b/sound/soc/rockchip/rockchip_i2s.c
+@@ -693,7 +693,8 @@ static int rockchip_i2s_init_dai(struct rk_i2s_dev *i2s, struct resource *res,
+ 					SNDRV_PCM_FMTBIT_S16_LE |
+ 					SNDRV_PCM_FMTBIT_S20_3LE |
+ 					SNDRV_PCM_FMTBIT_S24_LE |
+-					SNDRV_PCM_FMTBIT_S32_LE;
++					SNDRV_PCM_FMTBIT_S32_LE |
++					SNDRV_PCM_FMTBIT_IEC958_SUBFRAME_LE;
+ 
+ 		i2s->playback_dma_data.addr = res->start + I2S_TXDR;
+ 		i2s->playback_dma_data.addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+@@ -714,7 +715,8 @@ static int rockchip_i2s_init_dai(struct rk_i2s_dev *i2s, struct resource *res,
+ 				       SNDRV_PCM_FMTBIT_S16_LE |
+ 				       SNDRV_PCM_FMTBIT_S20_3LE |
+ 				       SNDRV_PCM_FMTBIT_S24_LE |
+-				       SNDRV_PCM_FMTBIT_S32_LE;
++				       SNDRV_PCM_FMTBIT_S32_LE |
++				       SNDRV_PCM_FMTBIT_IEC958_SUBFRAME_LE;
+ 
+ 		i2s->capture_dma_data.addr = res->start + I2S_RXDR;
+ 		i2s->capture_dma_data.addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+diff --git a/sound/soc/sunxi/sun4i-i2s.c b/sound/soc/sunxi/sun4i-i2s.c
+index 40de99a..56c98c6 100644
+--- a/sound/soc/sunxi/sun4i-i2s.c
++++ b/sound/soc/sunxi/sun4i-i2s.c
+@@ -1119,7 +1119,8 @@ static const struct snd_soc_dai_ops sun4i_i2s_dai_ops = {
+ #define SUN4I_FORMATS_ALL (SNDRV_PCM_FMTBIT_S16_LE | \
+ 			   SNDRV_PCM_FMTBIT_S20_LE | \
+ 			   SNDRV_PCM_FMTBIT_S24_LE | \
+-			   SNDRV_PCM_FMTBIT_S32_LE)
++			   SNDRV_PCM_FMTBIT_S32_LE | \
++			   SNDRV_PCM_FMTBIT_IEC958_SUBFRAME_LE)
+ 
+ static struct snd_soc_dai_driver sun4i_i2s_dai = {
+ 	.capture = {
+-- 
+2.39.5
+

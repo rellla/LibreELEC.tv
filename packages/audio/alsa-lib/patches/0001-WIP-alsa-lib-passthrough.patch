@@ -1,0 +1,101 @@
+From cba6a5f7e738378dc1b3802d9c50227a5004d95a Mon Sep 17 00:00:00 2001
+From: Andreas Baierl <ichgeh@imkreisrum.de>
+Date: Sun, 27 Apr 2025 22:04:45 +0200
+Subject: [PATCH] WIP: alsa-lib: passthrough
+
+---
+ src/pcm/pcm_iec958.c | 42 +++++++++++++++++-------------------------
+ 1 file changed, 17 insertions(+), 25 deletions(-)
+
+diff --git a/src/pcm/pcm_iec958.c b/src/pcm/pcm_iec958.c
+index 7b8459f..d91742d 100644
+--- a/src/pcm/pcm_iec958.c
++++ b/src/pcm/pcm_iec958.c
+@@ -70,8 +70,8 @@ enum { PREAMBLE_Z, PREAMBLE_X, PREAMBLE_Y };
+ #endif /* DOC_HIDDEN */
+ 
+ /*
+- * Determine parity for time slots 4 upto 30
+- * to be sure that bit 4 upt 31 will carry
++ * Determine parity for time slots 11 upto 29
++ * to be sure that bit 11 upto 30 will carry
+  * an even number of ones and zeros.
+  */
+ static unsigned int iec958_parity(unsigned int data)
+@@ -79,9 +79,8 @@ static unsigned int iec958_parity(unsigned int data)
+ 	unsigned int parity;
+ 	int bit;
+ 
+-	data >>= 4;     /* start from bit 4 */
+ 	parity = 0;
+-	for (bit = 4; bit <= 30; bit++) {
++	for (bit = 11; bit <= 29; bit++) {
+ 		if (data & 1)
+ 			parity++;
+ 		data >>= 1;
+@@ -93,13 +92,13 @@ static unsigned int iec958_parity(unsigned int data)
+  * Compose 32bit IEC958 subframe, two sub frames
+  * build one frame with two channels.
+  *
+- * bit 0-3  = preamble
+- *     4-7  = AUX (=0)
+- *     8-27 = data (12-27 for 16bit, 8-27 for 20bit, and 24bit without AUX)
+- *     28   = validity (0 for valid data, else 'in error')
+- *     29   = user data (0)
+- *     30   = channel status (24 bytes for 192 frames)
+- *     31   = parity
++ * bit 0-10  = padding
++ *     11-26 = data
++ *     27   = validity (0 for valid data, else 'in error')
++ *     28   = user data (0)
++ *     29   = channel status (24 bytes for 192 frames)
++ *     30   = parity
++ *     31   = frame start
+  */
+ 
+ static inline uint32_t iec958_subframe(snd_pcm_iec958_t *iec, uint32_t data, int channel)
+@@ -107,25 +106,19 @@ static inline uint32_t iec958_subframe(snd_pcm_iec958_t *iec, uint32_t data, int
+ 	unsigned int byte = iec->counter >> 3;
+ 	unsigned int mask = 1 << (iec->counter - (byte << 3));
+ 
+-	/* bit 4-27 */
+-	data >>= 4;
+-	data &= ~0xf;
++	data = (data & 0xffff0000) >> 5;
+ 
+ 	/* set IEC status bits (up to 192 bits) */
+ 	if (iec->status[byte] & mask)
++		data |= 0x20000000;
++
++	if (iec958_parity(data))
+ 		data |= 0x40000000;
+ 
+-	if (iec958_parity(data))	/* parity bit 4-30 */
++	/* block start */
++	if (!iec->counter)
+ 		data |= 0x80000000;
+ 
+-	/* Preamble */
+-	if (channel)
+-		data |= iec->preamble[PREAMBLE_Y];	/* odd sub frame, 'Y' */
+-	else if (! iec->counter)
+-		data |= iec->preamble[PREAMBLE_Z];	/* Block start, 'Z' */
+-	else
+-		data |= iec->preamble[PREAMBLE_X];	/* even sub frame, 'X' */
+-
+ 	if (iec->byteswap)
+ 		data = bswap_32(data);
+ 
+@@ -136,8 +129,7 @@ static inline int32_t iec958_to_s32(snd_pcm_iec958_t *iec, uint32_t data)
+ {
+ 	if (iec->byteswap)
+ 		data = bswap_32(data);
+-	data &= ~0xf;
+-	data <<= 4;
++	data <<= 5;
+ 	return (int32_t)data;
+ }
+ 
+-- 
+2.39.5
+
