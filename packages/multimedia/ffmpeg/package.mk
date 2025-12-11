@@ -17,26 +17,16 @@ PKG_FFMPEG_REQUEST_DISABLE="--disable-libudev --disable-v4l2-request"
 PKG_FFMPEG_REQUEST_ENABLE="--enable-libudev --enable-v4l2-request"
 
 case "${PROJECT}" in
-  Amlogic)
-    PKG_VERSION="ad8c2e36ee2d5a30442f6e4ca0e82df2622f8958"
-    PKG_SHA256="eed6678e9a1877a5bd36b7ea85c510a41f17c172f045153ec8f177bf477f4fc1"
+  Amlogic|Rockchip)
+    PKG_VERSION="afcf39410b1c21b636fb51181a14f6d5dc7b02c4"
+    PKG_SHA256="1cd7f22cb53c0ee032033107ac9f875dcc1a2bc4ccaa7abcbf5fbddee8e114f1"
     PKG_URL="https://github.com/chewitt/ffmpeg/archive/${PKG_VERSION}.tar.gz"
-    PKG_FFMPEG_BRANCH="armsoc-9.0.2"
+    PKG_FFMPEG_BRANCH="${PROJECT,,}-9.0.2"
     PKG_SOURCE_NAME="ffmpeg-${PKG_VERSION}.tar.gz"
     ;;
   Generic)
     PKG_FFMPEG_REQUEST_DISABLE=""
     PKG_FFMPEG_REQUEST_ENABLE=""
-    ;;
-  Rockchip)
-    case "${DEVICE}" in
-      RK3288|RK3328|RK3399)
-        PKG_PATCH_DIRS+=" v4l2-request v4l2-drmprime vf-deinterlace-v4l2m2m"
-        ;;
-      RK356X|RK3576|RK3588)
-        PKG_PATCH_DIRS+=" v4l2-request detlev v4l2-drmprime vf-deinterlace-v4l2m2m"
-        ;;
-    esac
     ;;
   RPi)
     PKG_FFMPEG_RPI="--disable-mmal --enable-sand"
@@ -45,7 +35,7 @@ case "${PROJECT}" in
   *)
     PKG_PATCH_DIRS+=" v4l2-request v4l2-drmprime"
     case "${PROJECT}" in
-      Allwinner | Rockchip)
+      Allwinner)
         PKG_PATCH_DIRS+=" vf-deinterlace-v4l2m2m"
         ;;
     esac
